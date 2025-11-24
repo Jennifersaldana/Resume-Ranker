@@ -22,9 +22,20 @@ cd Resume-Ranker
 python3 -m venv venv
 ```
 
-4. Activate python environment
+OR
 ```Bash
+python -m venv venv
+```
+
+4. Activate python environment
+
+MacOS:
+```Bash 
 source venv/bin/activate
+```
+Windows:
+```Bash 
+venv\Scripts\activate
 ```
 
 5. cd into resume_analyzer 
@@ -43,6 +54,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+*Press Enter to skip intro.*
 
 ## Structure:
 
