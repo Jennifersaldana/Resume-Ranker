@@ -2,32 +2,34 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import pdfplumber
-from sentence_transformers import SentenceTransformer
-import os
 import matplotlib.pyplot as plt
-import io
 
-# Utility imports
+# Custom utility modules
+from utils.embedding import load_embedding_model
 from utils.ranking import rank_resumes
 from utils.bias import detect_bias_batch
 from utils.neutralization import neutralize_batch
-from utils.analysis import generate_suggestions
-# from utils.feedback import generate_resume_feedback   # optional
+from utils.suggestions import generate_suggestions 
+from utils.feedback import generate_resume_feedback
 
+# ===========================================
+# PAGE CONFIG
+# ===========================================
+st.set_page_config(page_title="AI Resume Ranker", layout="wide")
+st.title("Resume Ranker Dashboard")
 
-# ------------------------
-# Load Embedding Model
-# ------------------------
+# ===========================================
+# CACHE MODEL LOADING
+# ===========================================
 @st.cache_resource
 def load_model():
-    return SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    return load_embedding_model("sentence-transformers/all-MiniLM-L6-v2")
 
 model = load_model()
 
-
-# ------------------------
-# PDF → Text Extractor
-# ------------------------
+# ===========================================
+# PDF Extraction
+# ===========================================
 def extract_pdf_text(pdf_file):
     text = ""
     with pdfplumber.open(pdf_file) as pdf:
@@ -38,46 +40,40 @@ def extract_pdf_text(pdf_file):
     return text
 
 
-# ------------------------
-# Reset Button
-# ------------------------
+# ===========================================
+# SESSION RESET
+# ===========================================
 if "reset" not in st.session_state:
     st.session_state.reset = False
 
 def reset_dashboard():
     st.session_state.reset = True
 
-
-st.set_page_config(page_title="AI Resume Ranker", layout="wide")
-st.title("Resume Ranker")
-
-
 if st.session_state.reset:
     st.session_state.clear()
     st.rerun()
 
-st.write("Upload up to five resumes and one job description. The model will rank your resumes based on your chosen criteria.")
+# ===========================================
+# USER INPUT SECTION
+# ===========================================
+st.write("Upload up to five resumes and one job description. The AI model will rank resumes, detect bias, and compute fairness metrics.")
 
-
-# Upload Inputs
 resumes = st.file_uploader("Upload 1–5 Resumes (PDF)", type=["pdf"], accept_multiple_files=True)
 job_desc = st.file_uploader("Upload Job Description (PDF)", type=["pdf"])
-
 criteria = st.text_area(
-    "Optional: Add judging instructions (e.g., 'Focus on GPA and technical skills', 'Prefer LSU graduates', etc.)",
-    placeholder="Example: Focus more on project experience, GPA, AWS skills, etc."
+    "Optional custom judging criteria:",
+    placeholder="Example: Focus on AWS skills, internships, and GPA..."
 )
 
 run_button = st.button("Run Ranking")
 st.button("Reset Dashboard", on_click=reset_dashboard)
 
-
-# ------------------------
-# When user clicks RUN
-# ------------------------
+# ===========================================
+# MAIN PIPELINE
+# ===========================================
 if run_button:
 
-    # Basic Validation
+    # --- Validate inputs ---
     if not resumes:
         st.error("Please upload at least one resume.")
         st.stop()
@@ -90,40 +86,48 @@ if run_button:
 
     with st.spinner("Analyzing resumes... ⏳"):
 
+        # ----------------------------------------------------------------------------------
+        # 1) Extract PDF text
+        # ----------------------------------------------------------------------------------
         jd_text = extract_pdf_text(job_desc)
-
         resume_texts = []
         resume_names = []
-        for file in resumes:
-            resume_names.append(file.name)
-            resume_texts.append(extract_pdf_text(file))
 
-        # Ranking
+        for f in resumes:
+            resume_names.append(f.name)
+            resume_texts.append(extract_pdf_text(f))
+
+        # ----------------------------------------------------------------------------------
+        # 2) Phase 11: Ranking Algorithm
+        # ----------------------------------------------------------------------------------
         ranked = rank_resumes(resume_texts, jd_text, model)
 
-        for i, r in enumerate(ranked):
-            r["resume_name"] = resume_names[r["resume_index"]]
-            r["resume_text"] = resume_texts[r["resume_index"]]
+        # Add name + full text back to each result
+        for item in ranked:
+            idx = item["resume_index"]
+            item["resume_name"] = resume_names[idx]
+            item["resume_text"] = resume_texts[idx]
 
         ranking_df = pd.DataFrame({
             "Rank": [r["rank"] for r in ranked],
             "Resume": [r["resume_name"] for r in ranked],
             "Score": [round(r["similarity_score"], 4) for r in ranked],
         })
+
     st.success("Analysis complete!")
 
-    # ------------------------
-    # DISPLAY RANKINGS
-    # ------------------------
-    st.header("Resume Rankings:")
+    # --------------------------------------------------------------------------------------
+    # RANKINGS TABLE
+    # --------------------------------------------------------------------------------------
+    st.header("Resume Rankings")
     st.table(ranking_df)
 
-
-    # ------------------------
-    # BIAS METRICS
-    # ------------------------
+    # --------------------------------------------------------------------------------------
+    # 3) Phase 6: Bias Detection
+    # --------------------------------------------------------------------------------------
     st.header("Bias & Fairness Metrics")
     st.write("🟢 Low Bias, 🟡 Medium Bias, 🔴 High Bias")
+
     bias_scores = detect_bias_batch([r["resume_text"] for r in ranked])
 
     bias_df = pd.DataFrame({
@@ -131,8 +135,8 @@ if run_button:
         "Bias Score": bias_scores
     })
 
+    # Display per-resume bias
     for i, score in enumerate(bias_scores):
-
         if score < 2:
             badge = "🟢 Low Bias"
         elif score < 5:
@@ -142,14 +146,15 @@ if run_button:
 
         st.write(f"**{ranked[i]['resume_name']}** — Score: `{round(score, 2)}` {badge}")
 
-
-
-    # ------------------------
-    # FAIRNESS INDEX CALCULATION
-    # ------------------------
+    # --------------------------------------------------------------------------------------
+    # 4) Neutralization (Fairness Evaluation)
+    # --------------------------------------------------------------------------------------
     st.header("Fairness Index")
 
+    # Create neutralized versions
     neutralized_texts = neutralize_batch([r["resume_text"] for r in ranked])
+
+    # Re-rank with neutralized text
     neutralized_ranked = rank_resumes(neutralized_texts, jd_text, model)
 
     original_ranks = np.array([r["rank"] for r in ranked])
@@ -159,10 +164,9 @@ if run_button:
 
     st.metric(label="Fairness Index (0–1)", value=round(float(fairness_index), 3))
 
-
-    # ------------------------
-    # DISPLAY NEUTRALIZED RANKINGS
-    # ------------------------
+    # --------------------------------------------------------------------------------------
+    # 5) Neutralized Ranking Table
+    # --------------------------------------------------------------------------------------
     st.header("Neutralized Ranking Comparison")
 
     neutralized_df = pd.DataFrame({
@@ -173,105 +177,77 @@ if run_button:
 
     st.table(neutralized_df)
 
-    # ------------------------
-    # CHARTS
-    # ------------------------
+    # --------------------------------------------------------------------------------------
+    # 6) Charts & Visualizations
+    # --------------------------------------------------------------------------------------
     st.header("Charts & Analytics")
 
-    # 2 rows × 2 columns layout
     col1, col2 = st.columns(2)
 
-    # -------------------------------
-    # Histogram: Similarity Scores
-    # -------------------------------
+    # Histogram — Similarity Scores
     with col1:
-        st.markdown("### Similarity Score Distribution (Histogram)")
+        st.markdown("### Similarity Score Distribution")
         fig, ax = plt.subplots()
-        ax.hist(
-            ranking_df["Score"],
-            bins=len(ranking_df["Score"]),
-            color="skyblue",
-            edgecolor="black"
-        )
-        ax.set_xlabel("Score")
+        ax.hist(ranking_df["Score"], bins=len(ranking_df["Score"]), edgecolor="black")
+        ax.set_xlabel("Similarity Score")
         ax.set_ylabel("Count")
         st.pyplot(fig)
 
-    # -------------------------------
-    # Histogram: Bias Scores
-    # -------------------------------
+    # Histogram — Bias Scores
     with col2:
-        st.markdown("### Bias Score Distribution (Histogram)")
+        st.markdown("### Bias Score Distribution")
         fig, ax = plt.subplots()
-        ax.hist(
-            bias_scores,
-            bins=len(bias_scores),
-            color="salmon",
-            edgecolor="black"
-        )
+        ax.hist(bias_scores, bins=len(bias_scores), edgecolor="black")
         ax.set_xlabel("Bias Score")
         ax.set_ylabel("Count")
         st.pyplot(fig)
 
-    # ===============================
-    # 2nd Row (Bar Charts)
-    # ===============================
     col3, col4 = st.columns(2)
 
-    # -------------------------------
-    # Bar Chart: Similarity
-    # -------------------------------
+    # Bar Chart — Similarity
     with col3:
         st.markdown("### Similarity Scores (Bar Chart)")
         fig, ax = plt.subplots()
-        ax.bar(
-            ranking_df["Resume"],
-            ranking_df["Score"],
-            color="skyblue",
-            edgecolor="black"
-        )
-        ax.set_ylabel("Score")
+        ax.bar(ranking_df["Resume"], ranking_df["Score"], edgecolor="black")
         plt.xticks(rotation=45, ha='right')
+        ax.set_ylabel("Score")
         st.pyplot(fig)
 
-    # -------------------------------
-    # Bar Chart: Bias
-    # -------------------------------
+    # Bar Chart — Bias
     with col4:
         st.markdown("### Bias Scores (Bar Chart)")
         fig, ax = plt.subplots()
-        ax.bar(
-            bias_df["Resume"],
-            bias_df["Bias Score"],
-            color="salmon",
-            edgecolor="black"
-        )
-        ax.set_ylabel("Bias Score")
+        ax.bar(bias_df["Resume"], bias_df["Bias Score"], edgecolor="black")
         plt.xticks(rotation=45, ha='right')
+        ax.set_ylabel("Bias Score")
         st.pyplot(fig)
 
-
-
-    # ------------------------
-    # STRENGTH & WEAKNESSES
-    # ------------------------
-    st.header("Strengths, Weaknesses, and Suggestions")
+    # --------------------------------------------------------------------------------------
+    # 7) Suggestions (Strength, Weaknesses)
+    # --------------------------------------------------------------------------------------
+    st.header("Strengths, Weaknesses, Suggestions")
 
     for r in ranked:
         st.write(f"### {r['resume_name']}")
-
         suggestions = generate_suggestions(r["resume_text"], jd_text)
 
-        st.write("**Strengths:**", suggestions["strengths"])
-        st.write("**Weaknesses:**", suggestions["weaknesses"])
+        st.write("**Strengths:** ", suggestions["strengths"])
+        st.write("**Weaknesses:** ", suggestions["weaknesses"])
         st.write("**Suggestions:**")
         for s in suggestions["suggestions"]:
             st.write(f"- {s}")
 
+    # --------------------------------------------------------------------------------------
+    # 8) Feedback with a LLM
+    # --------------------------------------------------------------------------------------
+    with st.expander(f"AI Reviewer Feedback for {r['resume_name']}"):
+        feedback = generate_resume_feedback(r["resume_text"], jd_text)
+        st.write(feedback)
 
-    # ------------------------
-    # DOWNLOAD CSV REPORTS
-    # ------------------------
+
+    # --------------------------------------------------------------------------------------
+    # 9) CSV Downloads
+    # --------------------------------------------------------------------------------------
     st.subheader("Download Reports")
 
     st.download_button(
@@ -288,7 +264,6 @@ if run_button:
         mime="text/csv"
     )
 
-
     st.download_button(
         label="Download Bias Scores CSV",
         data=bias_df.to_csv(index=False),
@@ -296,10 +271,9 @@ if run_button:
         mime="text/csv"
     )
 
-
-    # ------------------------
-    # RAW TEXT VIEW
-    # ------------------------
+    # --------------------------------------------------------------------------------------
+    # 10) View Extracted Resume Text
+    # --------------------------------------------------------------------------------------
     with st.expander("View Extracted Resume Text"):
         for r in ranked:
             st.write(f"### {r['resume_name']}")

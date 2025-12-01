@@ -1,77 +1,63 @@
-# Phase 6
-import pandas as pd
 import re
-from collections import Counter
+import numpy as np
 
-# ------------------------------------------------------------
-# Load Bias Dictionaries
-# ------------------------------------------------------------
+# ---------------------------------------------
+# Load Bias Indicators (same as notebook)
+# ---------------------------------------------
 def load_bias_indicators():
     return {
         "prestige_institutions": [
-            'harvard','stanford','mit','princeton','yale','columbia',
-            'university of chicago','caltech','duke','brown'
+            "harvard", "stanford", "mit", "princeton", "yale",
+            "columbia", "upenn", "cornell", "dartmouth", "brown",
+            "uchicago", "caltech", "duke"
         ],
         "prestige_companies": [
-            'google','amazon','meta','facebook','apple','microsoft','tesla'
+            "google", "microsoft", "amazon", "meta", "facebook",
+            "apple", "netflix", "uber", "airbnb", "tesla"
         ],
         "prestige_locations": [
-            'silicon valley','nyc','boston','san francisco','palo alto'
+            "silicon valley", "palo alto", "menlo park",
+            "new york city", "nyc", "manhattan",
+            "london", "paris", "tokyo", "singapore", "sf"
         ],
-        "gender_indicators": {
-            "pronouns": [" he ", " she ", " his ", " her "],
-            "titles": [" mr ", " ms ", " mrs ", " miss "],
-            "explicit_gender": [" male ", " female ", " man ", " woman "],
-            "protected_characteristics": [
-                "hispanic", "latino", "disabled", "veteran"
-            ]
-        }
+        "gender_terms": [
+            " he ", " she ", " his ", " her ", " him ", " hers ",
+            " mr ", " mrs ", " ms ", " miss "
+        ]
     }
 
-# ------------------------------------------------------------
-# Bias Detection for One Text
-# ------------------------------------------------------------
-def detect_bias_in_text(text, indicators):
+# ---------------------------------------------
+# Detect bias score for a single document
+# ---------------------------------------------
+def detect_bias(text, indicators):
     if not text:
-        return {"total_bias_score": 0}
+        return 0
 
-    text_lower = " " + text.lower() + " "
+    t = " " + text.lower() + " "
 
     score = 0
 
-    # Prestige institutions
     for inst in indicators["prestige_institutions"]:
-        if inst in text_lower:
-            score += 2
+        if inst in t:
+            score += 2.0
 
-    # Prestige companies
     for comp in indicators["prestige_companies"]:
-        if comp in text_lower:
+        if comp in t:
             score += 1.5
 
-    # Prestige locations
     for loc in indicators["prestige_locations"]:
-        if loc in text_lower:
-            score += 1
+        if loc in t:
+            score += 1.0
 
-    # Gender + protected indicators
-    for cat, terms in indicators["gender_indicators"].items():
-        for t in terms:
-            if t in text_lower:
-                score += 1
+    for g in indicators["gender_terms"]:
+        if g in t:
+            score += 1.0
 
-    return {"total_bias_score": score}
+    return score
 
-
-# ------------------------------------------------------------
-# Batch Processing for Resumes
-# ------------------------------------------------------------
-def detect_bias_batch(resume_texts):
+# ---------------------------------------------
+# Batch processing for Streamlit
+# ---------------------------------------------
+def detect_bias_batch(text_list):
     indicators = load_bias_indicators()
-    results = []
-
-    for text in resume_texts:
-        score = detect_bias_in_text(text, indicators)
-        results.append(score["total_bias_score"])
-
-    return results
+    return [detect_bias(t, indicators) for t in text_list]

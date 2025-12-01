@@ -1,68 +1,58 @@
-# utils/feedback.py
+import openai
 
-import json
-from openai import OpenAI
+# Make sure you set your environment variable:
+# export OPENAI_API_KEY="yourkey"
 
-# ---------------------------------------------
-# Generate LLM-based resume feedback
-# ---------------------------------------------
-def generate_resume_feedback(resume_text: str, job_text: str, api_key=None):
+def generate_resume_feedback(resume_text, job_text):
     """
-    Uses an LLM to provide personalized resume improvement feedback.
-    Returns:
-        - missing_skills
-        - weaknesses
-        - improvement_tips
+    Uses an LLM to generate professional, human-like feedback for a resume.
+    More detailed than suggestions.py.
     """
-
-    # Create client *inside* the function to prevent import-time API key error
-    if api_key:
-        client = OpenAI(api_key=api_key)
-    else:
-        client = OpenAI()  # Will use OPENAI_API_KEY env variable
 
     prompt = f"""
-You are an expert technical recruiter evaluating resumes.
+You are a cybersecurity hiring manager reviewing a resume.
 
-Compare the following resume and job description.
-
-RESUME:
-{resume_text}
-
-JOB DESCRIPTION:
+Job Description:
+----------------
 {job_text}
 
-Identify the top missing skills AND give specific suggestions.
+Candidate Resume:
+-----------------
+{resume_text}
 
-Return ONLY valid JSON in this format:
-{{
-  "missing_skills": ["skill1", "skill2", "skill3"],
-  "weaknesses": ["issue1", "issue2"],
-  "improvement_tips": ["tip1", "tip2", "tip3"]
-}}
+TASKS:
+1. Provide a **professional evaluation** of the resume.
+2. Identify strengths relevant to cybersecurity or IT.
+3. Identify missing skills or gaps specific to the job.
+4. Suggest **clear improvements**, including:
+   - what to add
+   - what to rewrite
+   - what to emphasize
+   - formatting or structure tips
+5. Keep the tone supportive and professional.
+
+Return your response in the following format:
+
+### Overall Assessment
+(text)
+
+### Strengths
+- (bullet points)
+
+### Areas for Improvement
+- (bullet points)
+
+### Actionable Recommendations
+- (bullet points)
+
+Go ahead and produce the feedback now.
 """
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-        )
-    except Exception as e:
-        # If user has no API key, return safe fallback
-        return {
-            "missing_skills": [],
-            "weaknesses": [],
-            "improvement_tips": [f"⚠️ Error: {e}. Add your OPENAI_API_KEY to enable LLM feedback."]
-        }
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",   # or gpt-4.1, etc.
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4,
+        max_tokens=600,
+    )
 
-    raw_output = response.choices[0].message.content
-
-    try:
-        return json.loads(raw_output)
-    except:
-        return {
-            "missing_skills": [],
-            "weaknesses": [],
-            "improvement_tips": [raw_output]
-        }
+    return response["choices"][0]["message"]["content"]
