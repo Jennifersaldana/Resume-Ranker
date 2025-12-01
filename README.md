@@ -1,8 +1,8 @@
 # Resume-Ranker:
-AI Resume Ranker is a Streamlit web app that lets users can upload 1–5 resumes and a job description PDF, with an optional text box to provide custom ranking criteria for the LLM (e.g., “rank by GPA” or “prioritize LSU students”), and the results are then displayed directly in the Streamlit interface. It analyzes how well each resume matches the job, identifies missing skills, and provides personalized suggestions for improvement.
+AI Resume Ranker is a Streamlit web app that lets users can upload 1–5 resumes and a job description PDF, with an optional text box to provide custom ranking criteria for the model (e.g., “rank by GPA” or “prioritize LSU students”), and the results are then displayed directly in the Streamlit interface. It analyzes how well each resume matches the job, identifies missing skills, and provides personalized suggestions for improvement.
 
 ## Idea:
-User uploads PDF  →  We extract the text  →  Send that text to a LLM  →  Get feedback  →  Display results
+User uploads PDF  →  We extract the text  →  Send that text to a model  →  Get feedback  →  Display results
 
 
 ## How to Run:
@@ -75,17 +75,5 @@ Resume-Ranker/
 1. app.py
 - The main Streamlit application that creates the web interface.
 
-2. utils/pdf_reader.py
-- A utility file that handles PDF text extraction.
-- Uses the PyPDF2 library to read uploaded PDF files
-- Iterates through each page and extracts the text
-- Returns clean text that can be passed to the analysis logic
-
-3. utils/analyzer.py
-- A helper file for connecting to an LLM (like OpenAI GPT).
-- Sends resume and job description text to the AI model
-- Receives structured feedback (match score, strengths, weaknesses, suggestions)
-- Returns that feedback to be displayed in app.py
-
-4. requirements.txt
+2. requirements.txt
 - Lists all Python dependencies needed to run the app.
