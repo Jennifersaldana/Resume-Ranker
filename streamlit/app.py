@@ -99,10 +99,6 @@ resumes = st.file_uploader(
 )
 job_desc = st.file_uploader("Upload Job Description (PDF)", type=["pdf"])
 
-criteria = st.text_area(
-    "Optional custom judging criteria:",
-    placeholder="Example: Focus on AWS experience, internships, and certifications..."
-)
 
 run_button = st.button("Run Ranking")
 st.button("Reset Dashboard", on_click=reset_dashboard)
@@ -165,8 +161,6 @@ if run_button:
 
     st.success("Ranking complete!")
 
-    if criteria.strip() != "":
-        st.info(f"Custom judging criteria applied:\n\n{criteria}")
 
     # =============================================================
     # DISPLAY LLM FEEDBACK
