@@ -166,27 +166,66 @@ if run_button:
     # DISPLAY LLM FEEDBACK
     # =============================================================
     st.subheader("Personalized Resume Feedback (Local LLM)")
+    total_candidates = len(ranking_results)
 
-    for result in ranking_results:
+    for position, result in enumerate(ranking_results, start=1):
         resume_name = result["Resume"]
+        match_score = result["Predicted Score"]
+
+        # Determine tier
+        if match_score >= 0.7:
+            tier = "High"
+        elif match_score >= 0.50:
+            tier = "Medium"
+        else:
+            tier = "Low"
+
+        # Tier tone
+        if tier == "High":
+            tier_context = (
+                "This is a TOP-TIER candidate. Focus on what makes them stand out "
+                "and offer minor polish suggestions."
+            )
+        elif tier == "Medium":
+            tier_context = (
+                "This is a MID-TIER candidate. Highlight their potential and the "
+                "specific improvements needed to reach top tier."
+            )
+        else:
+            tier_context = (
+                "This is a LOWER-TIER candidate. Be constructive and identify the "
+                "key gaps preventing a better match."
+            )
+
+        position_context = f"Ranked {position} out of {total_candidates} candidates."
+
         resume_obj = next(r for r in resumes if r.name == resume_name)
         resume_text = extract_pdf_text(resume_obj)
 
+        # Final prompt
         prompt = f"""
-You are a professional resume reviewer.
+    You are an expert HR recruiter giving personalized feedback on a resume.
 
-JOB DESCRIPTION:
-{job_text}
+    CANDIDATE RATING:
+    Tier: {tier}
+    Match Score: {match_score:.1%}
+    Position: {position_context}
 
-RESUME:
-{resume_text}
+    FEEDBACK TONE: {tier_context}
 
-Provide a detailed evaluation including:
-- Strengths
-- Weaknesses
-- Missing important skills
-- Suggestions to improve match score
-"""
+    JOB DESCRIPTION:
+    {job_text[:1200]}
+
+    RESUME:
+    {resume_text[:1200]}
+
+    Give personalized feedback in 3–4 sentences based on their tier rating, match score, and ranking.
+    You MUST explicitly mention the candidate's tier in your feedback 
+    (e.g., “As a High-tier candidate…” or “Given your Medium-tier rating…”).
+
+    Be specific to THIS resume and job. 
+    No bullet points — write naturally.
+    """
 
         feedback = get_feedback_from_ollama(prompt)
 
