@@ -1,10 +1,19 @@
 # Resume-Ranker
 Project 2 for CSC 4444 - AI
+
+Team:
+1. Jennifer Saldana
+2. Sadikshya Gyawali
+3. Kshitiz Dhungana
+4. Candor Alemu
+5. Anastacia Muhammad
+6. Eli Rayburn 
+
 # Resume-Ranker:
-AI Resume Ranker is a Streamlit web app that lets users can upload 1–5 resumes and a job description PDF, with an optional text box to provide custom ranking criteria for the model (e.g., “rank by GPA” or “prioritize LSU students”), and the results are then displayed directly in the Streamlit interface. It analyzes how well each resume matches the job, identifies missing skills, and provides personalized suggestions for improvement.
+AI Resume Ranker is a Streamlit web app that lets users can upload 1–5 resumes and a job description PDF, and the results are then displayed directly in the Streamlit interface. It analyzes how well each resume matches the job, identifies missing skills, and provides personalized suggestions for improvement using a local Ollama3
 
 ## Idea:
-User uploads PDF  →  We extract the text  →  Send that text to a model  →  Get feedback  →  Display results
+User uploads PDF  →  We extract the text  →  Send that text to a model  →  Display results →  Get personalized feedback  
 
 
 ## How to Run:
@@ -74,7 +83,7 @@ Resume-Ranker/
     │
     ├── app.py
     ├── best_matching_model.pkl
-    ├── requirements.txt
+    └── requirements.txt
 └── venv
 └── .gitignore
 └── README.md
@@ -87,3 +96,11 @@ Resume-Ranker/
 
 2. requirements.txt
 - Lists all Python dependencies needed to run the app.
+
+3. best_matching_model.pkl
+- Fine Tuned Model.
+
+## Folder Descriptions:
+1. resumes-job
+- One job description called "[IT_manager_job_description](resumes-job/IT_manager_job_description.pdf)"
+- Many security/analyst roles
