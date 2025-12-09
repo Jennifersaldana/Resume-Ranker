@@ -275,7 +275,7 @@ if run_button:
     # TABS
     # =========================================================
     tab_rank, tab_feedback, tab_skills, tab_bias, tab_metrics = st.tabs(
-        ["📊 Ranking Overview", "🧠 LLM Feedback", "🛠 Skills Analysis", "🎯 Bias Indicators", "📈 Metrics & Visuals"]
+        ["Ranking Overview", "LLM Feedback", "Skills Analysis", "Bias Indicators", "Metrics & Visuals"]
     )
 
     # ---------------------------------------------------------
