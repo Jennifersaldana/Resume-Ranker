@@ -1,2 +1,4 @@
 venv
 ./venv
+.streamlit/features/__pycache__
+streamlit/features/__pycache__
