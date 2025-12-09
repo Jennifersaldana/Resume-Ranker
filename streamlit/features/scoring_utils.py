@@ -1,9 +1,9 @@
 from sklearn.preprocessing import minmax_scale
 
 def get_match_tier(score: float) -> str:
-    if score >= 0.80:
+    if score >= 0.75:
         return "High"
-    elif score >= 0.55:
+    elif score >= 0.50:
         return "Medium"
     else:
         return "Low"
